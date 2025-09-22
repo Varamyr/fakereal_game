@@ -2,6 +2,15 @@
 
 A fullscreen Pygame app: two images (left/right), a big PASS button in the center, top bar with score and countdown timer. You guess which image is real. +1 for correct, -0.5 for wrong, 0 for PASS. 60s per session. Leaderboard (top 10) saved to `leaderboard.json`.
 
+## Dataset Download
+The dataset is composed by few datasets collected on huggingface and kaggle.
+The fake images comprise generated images from both diffusion models and GANs.
+There are around 100 samples per category in both fake and real folders.
+
+Link: https://drive.google.com/file/d/1I_sexKgiOlPHn3yJGp9LPzUtDLKjc9We/view?usp=sharing
+
+You can extend the dataset as you wish or use your own.
+
 ## Dataset Layout
 
 Place your dataset under `./data` with the following structure:
@@ -37,11 +46,3 @@ python main.py
 
 - Fullscreen is used by default. Press `Esc` to quit.
 - Use mouse to click left/right image or the PASS button.
-
-## Notes
-
-- Images are scaled with cover strategy to fill the left/right panes.
-- Countdown (3,2,1,GO) before each session.
-- After time ends, enter your name and press Enter to save to leaderboard.
-- If you made Top 10, you will see a congratulations message.
-- Press Enter on the leaderboard to start another session.
