@@ -160,6 +160,7 @@ class FakeRealGame:
 
         # Preload audio assets
         self.music_path = resource_path("assets", "background_music.mp3")
+        self.music_idle_path = resource_path("assets", "background_music_2.mp3")
         try:
             self.snd_right = pygame.mixer.Sound(resource_path("assets", "right.mp3"))
             self.snd_wrong = pygame.mixer.Sound(resource_path("assets", "wrong.mp3"))
@@ -169,10 +170,25 @@ class FakeRealGame:
             print(f"Failed to load SFX: {e}")
 
         # Fonts
-        self.font_small = pygame.font.Font(None, 36)
-        self.font = pygame.font.Font(None, 48)
-        self.font_large = pygame.font.Font(None, 96)
-        self.font_xlarge = pygame.font.Font(None, 180)
+        font_path = resource_path("assets", "grand9k_pixel.ttf")
+        try:
+            if os.path.exists(font_path):
+                self.font_small = pygame.font.Font(font_path, 20)
+                self.font = pygame.font.Font(font_path, 22)
+                self.font_large = pygame.font.Font(font_path, 24)
+                self.font_xlarge = pygame.font.Font(font_path, 36)
+            else:
+                print(f"Custom font not found at {font_path}, using default font.")
+                self.font_small = pygame.font.Font(None, 36)
+                self.font = pygame.font.Font(None, 48)
+                self.font_large = pygame.font.Font(None, 96)
+                self.font_xlarge = pygame.font.Font(None, 180)
+        except Exception as e:
+            print(f"Failed to load custom font: {e}")
+            self.font_small = pygame.font.Font(None, 36)
+            self.font = pygame.font.Font(None, 48)
+            self.font_large = pygame.font.Font(None, 96)
+            self.font_xlarge = pygame.font.Font(None, 180)
 
         # Preload logos for intro
         try:
@@ -254,6 +270,7 @@ class FakeRealGame:
         # Difficulty toggle (session-level): default from global
         self.random_category = RANDOM_CATEGORY
         self.last_action_time = 0  # Cooldown for choices
+        self.music_mode = None  # 'idle' or 'game'
 
         # current round
         self.left_image = None
@@ -268,6 +285,29 @@ class FakeRealGame:
 
         # Leaderboard: default to NORMAL until a difficulty is chosen
         self.leaderboard_path = resource_path(LEADERBOARD_FILE_NORMAL)
+
+        # Start idle music on intro
+        try:
+            self.set_music("idle")
+        except Exception:
+            pass
+
+    # -------------------------
+    # Music control
+    # -------------------------
+    def set_music(self, mode: str):
+        if getattr(self, 'music_mode', None) == mode:
+            return
+        try:
+            path = self.music_path if mode == 'game' else self.music_idle_path
+            if os.path.exists(path):
+                pygame.mixer.music.load(path)
+                pygame.mixer.music.play(-1)
+                self.music_mode = mode
+            else:
+                print(f"Music file not found: {path}")
+        except Exception as e:
+            print(f"Failed to switch music: {e}")
 
     # -------------------------
     # Dataset and rounds
@@ -428,11 +468,9 @@ class FakeRealGame:
         self.load_new_pair()
         # Start background music (loop)
         try:
-            if os.path.exists(self.music_path):
-                pygame.mixer.music.load(self.music_path)
-                pygame.mixer.music.play(-1)
-        except Exception as e:
-            print(f"Failed to play music: {e}")
+            self.set_music('game')
+        except Exception:
+            pass
 
     def start_play(self):
         self.state = "playing"
@@ -448,6 +486,11 @@ class FakeRealGame:
         self.latest_score = self.score
         self.state = "enter_name"
         self.player_name = ""
+        # Switch back to idle music when session ends
+        try:
+            self.set_music('idle')
+        except Exception:
+            pass
 
     # -------------------------
     # Leaderboard logic
@@ -606,6 +649,11 @@ class FakeRealGame:
             total = self.INTRO_FADE_MS * 2 + self.INTRO_HOLD_MS
             if pygame.time.get_ticks() - self.intro_start_ms >= total:
                 self.state = "start_prompt"
+                # Ensure idle music after intro
+                try:
+                    self.set_music('idle')
+                except Exception:
+                    pass
                 return
         if self.state == "countdown":
             now = pygame.time.get_ticks()
@@ -655,7 +703,7 @@ class FakeRealGame:
 
                 if self.logo_imp is not None:
                     li_w, li_h = self.logo_imp.get_size()
-                    scale_imp = min(1.0, max_imp_w / max(1, li_w))
+                    scale_imp = 0.5
                     imp_w = int(li_w * scale_imp)
                     imp_h = int(li_h * scale_imp)
                 else:
@@ -763,14 +811,14 @@ class FakeRealGame:
             pygame.draw.rect(self.canvas, (30, 30, 30), self.diff_prompt_rect, width=4, border_radius=18)
 
             # Title and description (text unchanged)
-            title = self.font_large.render("Seleziona Difficoltà", True, BLACK)
+            title = self.font_large.render("Seleziona Modalità", True, BLACK)
             tx = self.diff_prompt_rect.centerx - title.get_width() // 2
             ty = self.diff_prompt_rect.y + 30
             self.canvas.blit(title, (tx, ty))
 
             desc_lines = [
-                "NORMALE: le due foto appartengono alla stessa categoria.",
-                "DIFFICILE: le due foto appartengono a categorie diverse (più difficile).",
+                "Modalità 1: le due foto appartengono alla stessa categoria (più difficile).",
+                "Modalità 2: le due foto appartengono a categorie diverse.",
                 "Clicca una modalità per iniziare.",
             ]
             y = ty + title.get_height() + 16
@@ -791,8 +839,8 @@ class FakeRealGame:
                 t = self.font_large.render(text, True, BLACK)
                 self.canvas.blit(t, (rect.centerx - t.get_width() // 2, rect.centery - t.get_height() // 2))
 
-            draw_btn(self.diff_normal_rect, "NORMALE")
-            draw_btn(self.diff_hard_rect, "DIFFICILE")
+            draw_btn(self.diff_normal_rect, "Modalità 1")
+            draw_btn(self.diff_hard_rect, "Modalità 2")
 
         elif self.state == "enter_name":
             # Result screen and name input (improved visuals)
@@ -817,7 +865,7 @@ class FakeRealGame:
             self.draw_text_center("(Usa Backspace per correggere)", panel.bottom + 20, color=GRAY)
 
         elif self.state == "leaderboard":
-            difficolta = "Difficile" if self.random_category else "Normale"
+            difficolta = "Modalità 2" if self.random_category else "Modalità 1"
             self.draw_text_center(f"Classifica ({difficolta})", 100, color=YELLOW, font=self.font_large)
             entries = getattr(self, "leaderboard_entries", [])
             # Fancy list: only position and name, with alternating row shades
@@ -825,11 +873,12 @@ class FakeRealGame:
             rank = 1
             for e in entries:
                 name = e.get("name", "?")
+                score = e.get("score", "err")
                 row = pygame.Rect(CANVAS_WIDTH // 2 - 500, y - 8, 1000, 56)
                 shade = (245, 245, 245) if rank % 2 == 0 else (230, 230, 230)
                 pygame.draw.rect(self.canvas, shade, row, border_radius=10)
                 pygame.draw.rect(self.canvas, (200, 200, 200), row, width=2, border_radius=10)
-                line = f"{rank:2d}.  {name[:32]}"
+                line = f"{rank:2d}.  {name[:32]} : {score}"
                 s = self.font.render(line, True, BLACK)
                 self.canvas.blit(s, (row.x + 20, row.y + (row.height - s.get_height()) // 2))
                 y += 64
